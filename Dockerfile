@@ -7,14 +7,11 @@ FROM oven/bun:latest
 # Set the working directory
 WORKDIR /app
 
-# Copy the package.json and bun.lockb files
-COPY package.json bun.lockb ./
+# Copy the entire project to the container
+COPY . .
 
 # Install dependencies using Bun
 RUN bun install
-
-# Copy the rest of the application code
-COPY . .
 
 # Install Node.js version 20
 COPY --from=node_base /usr/local/bin/node /usr/local/bin/
