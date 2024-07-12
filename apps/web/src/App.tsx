@@ -19,6 +19,7 @@ import {
 import { parseAbi } from "viem";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import "./App.css";
 
 function App() {
   const queryClient = useQueryClient();
@@ -33,7 +34,7 @@ function App() {
     address: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
     functionName: "number",
     abi: parseAbi(["function number() public view returns (uint256)"]),
-  }) 
+  });
 
   const { data } = useSimulateContract({
     address: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
@@ -57,9 +58,10 @@ function App() {
         p="1rem"
         boxShadow="md"
         bg="blue.500"
+        background="black"
       >
         <Text color="white" mr="1rem" fontSize="2xl" fontWeight="bold">
-          Your dApp Name
+          Honest Work
         </Text>
         <ConnectButton />
       </Flex>
@@ -86,12 +88,14 @@ function App() {
             />
           </Link>
         </Flex>
-        <Text fontSize="2xl">Hardhat + Viem + Bun + Turbo + Vite + React + TS</Text>
+        <Text fontSize="2xl">
+          Hardhat + Viem + Bun + Turbo + Vite + React + TS
+        </Text>
         <Box p="2em" borderRadius="md" boxShadow="md">
           <Button
             colorScheme="blue"
             disabled={!Boolean(data?.request)}
-            onClick={() => data?.request ? writeContract(data.request) : null}
+            onClick={() => (data?.request ? writeContract(data.request) : null)}
           >
             {isLoading ? (
               <Text>Loading...</Text>
@@ -100,7 +104,7 @@ function App() {
             ) : (
               <Text>Count is {count?.toString()}</Text>
             )}
-            </Button>
+          </Button>
           <Text mt="4">
             Edit <Text as="code">src/App.tsx</Text> and save to test HMR
           </Text>
