@@ -9,6 +9,7 @@ const config: HardhatUserConfig = {
     },
     avalancheFuji: {
       chainId: 43113,
+      url: "https://api.avax-test.network/ext/bc/C/rpc",
     },
   },
 };
