@@ -23,18 +23,15 @@ import {
 import {
   useAccount,
   useConnect,
-  useContractWrite,
-  useWaitForTransactionReceipt,
   useBalance,
-  useSwitchChain,
-  useProvider,
-  useContractRead,
+  usePublicClient,
+  useReadContract,
 } from "wagmi";
 import { parseEther } from "viem";
-import { BigNumber } from "ethers";
 import PensionsABI from "./PensionsABI.json";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
+import { getContract, writeContract, simulateContract } from "viem";
 
 // **Contract Addresses**
 const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
@@ -94,11 +91,10 @@ function PlayerStatus() {
   const [userAge, setUserAge] = useState<bigint | undefined>();
 
   // Read the retirement age from the contract
-  const { data: contractRetirementAge } = useContractRead({
+  const { data: contractRetirementAge } = useReadContract({
     address: PENSIONS_CONTRACT_ADDRESS,
     abi: PensionsABI,
     functionName: "retirementAge",
-    watch: true, // Automatically re-fetch when a new block is mined
   });
 
   useEffect(() => {
@@ -110,14 +106,14 @@ function PlayerStatus() {
   // Fetch and calculate the user's age in TIME tokens
   useEffect(() => {
     if (!isConnected || !address) return;
-    const provider = useProvider();
+    const provider = usePublicClient();
 
     const fetchUserAge = async () => {
-      const timeContract = new viem.Contract(
-        TIME_TOKEN_ADDRESS,
-        TIME_TOKEN_ABI,
-        provider
-      );
+      const timeContract = getContract({
+        address: TIME_TOKEN_ADDRESS,
+        abi: TIME_TOKEN_ABI,
+        client: provider,
+      });
       const userBalance = await timeContract.read.balanceOf([address]);
       setUserAge(userBalance as bigint);
     };
@@ -131,12 +127,14 @@ function PlayerStatus() {
           <Stack spacing="3">
             <Heading size="md">Player Status</Heading>
             <Text>Balance (TIME): {balance?.formatted}</Text>
-            <Text>Retirement Age: {retirementAge?.toString()}</Text>
-            <Text>Your Age: {userAge?.toString()}</Text>
+            <Text>
+              Retirement Age: {retirementAge?.toString() || "Loading..."}
+            </Text>
+            <Text>Your Age: {userAge?.toString() || "Loading..."}</Text>
             <Divider />
             {/* Conditionally render the claim button */}
             {userAge ? (
-              userAge >= retirementAge ? (
+              retirementAge && userAge >= retirementAge ? (
                 <Button onClick={handleClaimPension}>Claim Pension</Button>
               ) : (
                 <Text>You are not eligible for a pension yet.</Text>
@@ -174,30 +172,6 @@ function Actions() {
   const [monthlyFlowRate, setMonthlyFlowRate] = useState("");
   const [flowRate, setFlowRate] = useState<string>("");
 
-  // Create flow using CFAv1ForwarderABI
-  const {
-    data: createFlowHash,
-    error: createFlowError,
-    isPending: isCreateFlowPending,
-    writeAsync: createFlow,
-  } = useContractWrite({
-    address: CFAv1ForwarderAddress,
-    abi: CFAv1ForwarderABI,
-    functionName: "createFlow",
-  });
-  const {
-    isLoading: isCreateFlowConfirming,
-    isSuccess: isCreateFlowConfirmed,
-  } = useWaitForTransactionReceipt({
-    hash: createFlowHash,
-  });
-
-  // Write to the Pensions contract
-  const { writeAsync: pensionsContractWrite } = useContractWrite({
-    address: PENSIONS_CONTRACT_ADDRESS,
-    abi: PensionsABI,
-  });
-
   // Handle Contribution
   const handleContribute = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -205,15 +179,21 @@ function Actions() {
 
     // Call the contract's createFlow function (make sure it takes ETH)
     try {
-      const hash = await pensionsContractWrite({
-        functionName: "createFlow", // [!code focus]
+      const config = {
+        address: PENSIONS_CONTRACT_ADDRESS,
+        abi: PensionsABI,
+        functionName: "createFlow",
         args: [parseEther(contributionAmount)],
+      };
+
+      const result = await writeContract(config, {
+        account: address,
       });
 
-      if (hash) {
+      if (result) {
         toast({
           title: "Contribution Pending",
-          description: `Transaction hash: ${hash}`,
+          description: `Transaction hash: ${result.hash}`,
           status: "info",
           duration: 5000,
           isClosable: true,
@@ -268,14 +248,8 @@ function Actions() {
                 required
               />
             </FormControl>
-            <Button disabled={isCreateFlowPending} type="submit">
-              {isCreateFlowPending ? "Contributing..." : "Contribute"}
-            </Button>
+            <Button type="submit">Contribute</Button>
           </form>
-          {createFlowHash && <div>Transaction Hash: {createFlowHash}</div>}
-          {isCreateFlowConfirming && <div>Waiting for confirmation...</div>}
-          {isCreateFlowConfirmed && <div>Contribution successful!</div>}
-          {createFlowError && <div>Error: {createFlowError.message}</div>}
 
           {/* Stream Button and Modal */}
           <Button data-cy={"open-dialog"} onClick={openDialog}>
@@ -302,16 +276,45 @@ function Actions() {
             <Button onClick={closeDialog}>Cancel</Button>
             <Button
               type="submit"
-              onClick={() =>
-                createFlow({
-                  args: [
-                    CASH_TOKEN_ADDRESS, // Your super token address
-                    PENSIONS_CONTRACT_ADDRESS,
-                    flowRate,
-                    "0x", // userData - can be left blank for this example
-                  ],
-                })
-              }
+              onClick={async () => {
+                try {
+                  const config = {
+                    address: CFAv1ForwarderAddress,
+                    abi: CFAv1ForwarderABI,
+                    functionName: "createFlow",
+                    args: [
+                      CASH_TOKEN_ADDRESS, // Your super token address
+                      PENSIONS_CONTRACT_ADDRESS,
+                      flowRate,
+                      "0x", // userData - can be left blank for this example
+                    ],
+                  };
+
+                  const simulated = await simulateContract(config, {
+                    account: address,
+                  });
+
+                  const result = await writeContract(config, simulated.request);
+
+                  if (result) {
+                    toast({
+                      title: "Stream Created",
+                      description: `Transaction hash: ${result.hash}`,
+                      status: "success",
+                      duration: 5000,
+                      isClosable: true,
+                    });
+                  }
+                } catch (error: any) {
+                  toast({
+                    title: "Stream Creation Error",
+                    description: error?.message || "An error occurred",
+                    status: "error",
+                    duration: 5000,
+                    isClosable: true,
+                  });
+                }
+              }}
             >
               Create stream
             </Button>
@@ -324,7 +327,7 @@ function Actions() {
       <Text>Please connect your wallet to start playing.</Text>
       <ul>
         {connectors.map((connector) => (
-          <li key={connector.uid}>
+          <li key={connector.id}>
             <Button onClick={() => connect({ connector })}>
               {connector.name}
             </Button>
