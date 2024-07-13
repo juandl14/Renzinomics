@@ -230,6 +230,14 @@ function Actions() {
           </Button>
         </Stack>
       </CardBody>
+      <StreamModal
+        open={open}
+        closeDialog={closeDialog}
+        flowRate={flowRate}
+        monthlyFlowRate={monthlyFlowRate}
+        onMonthlyFlowRateChange={onMonthlyFlowRateChange}
+        writeContract={writeContract}
+      />
     </Card>
   ) : (
     <>
@@ -251,6 +259,7 @@ const StreamModal = ({
   open,
   closeDialog,
   flowRate,
+  monthlyFlowRate,
   onMonthlyFlowRateChange,
   writeContract,
 }) => (
