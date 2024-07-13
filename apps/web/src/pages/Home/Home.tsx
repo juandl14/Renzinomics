@@ -24,8 +24,8 @@ import {
   useAccount,
   useConnect,
   useBalance,
-  usePublicClient,
   useReadContract,
+  usePublicClient,
 } from "wagmi";
 import { parseEther, getContract, Abi } from "viem";
 import { mainnet } from "wagmi/chains";
@@ -107,13 +107,13 @@ function PlayerStatus() {
   // Fetch and calculate the user's age in TIME tokens
   useEffect(() => {
     if (!isConnected || !address) return;
-    const provider = usePublicClient();
+    const publicClient = usePublicClient();
 
     const fetchUserAge = async () => {
       const timeContract = getContract({
         abi: TIME_ABI as Abi,
         address: TIME_TOKEN_ADDRESS,
-        client: provider,
+        client: publicClient,
       });
       const userBalance = await timeContract.read.balanceOf([address]);
       setUserAge(userBalance as bigint);
@@ -159,7 +159,6 @@ function PlayerStatus() {
 function Actions() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
-  const publicClient = usePublicClient();
 
   const toast = useToast();
 
