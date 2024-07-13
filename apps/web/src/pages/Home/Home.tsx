@@ -28,22 +28,22 @@ import {
   useReadContract,
 } from "wagmi";
 import { parseEther } from "viem";
-import PensionsABI from "./PensionsABI.json";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
 import { getContract } from "viem";
 import { writeContract, simulateContract } from "@wagmi/core";
 
+import PENSIONS_ABI from "./PensionsABI.json";
+import TIME_ABI from "./TimeABI.json";
+
 // **Contract Addresses**
 const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
+
 const CFAv1ForwarderAddress = "0x2CDd45c5182602a36d391F7F16DD9f8386C3bD8D";
 
 // **Token Addresses & ABIs**
-const CASH_TOKEN_ADDRESS = "YOUR_CASH_TOKEN_ADDRESS";
-const TIME_TOKEN_ADDRESS = "YOUR_TIME_TOKEN_ADDRESS";
-const TIME_TOKEN_ABI = [
-  // ... (Your TIME token ABI)
-];
+const CASH_TOKEN_ADDRESS = "0x12345678901234567890123456789012";
+const TIME_TOKEN_ADDRESS = "0x12345678901234567890123456789012";
 
 const Home = () => {
   return (
@@ -94,7 +94,7 @@ function PlayerStatus() {
   // Read the retirement age from the contract
   const { data: contractRetirementAge } = useReadContract({
     address: PENSIONS_CONTRACT_ADDRESS,
-    abi: PensionsABI,
+    abi: PENSIONS_ABI,
     functionName: "retirementAge",
   });
 
@@ -112,7 +112,7 @@ function PlayerStatus() {
     const fetchUserAge = async () => {
       const timeContract = getContract({
         address: TIME_TOKEN_ADDRESS,
-        abi: TIME_TOKEN_ABI,
+        abi: TIME_ABI,
         client: provider,
       });
       const userBalance = await timeContract.read.balanceOf([address]);
@@ -182,7 +182,7 @@ function Actions() {
     try {
       const config = {
         address: PENSIONS_CONTRACT_ADDRESS,
-        abi: PensionsABI,
+        abi: PENSIONS_ABI,
         functionName: "createFlow",
         args: [parseEther(contributionAmount)],
       };
