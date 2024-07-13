@@ -36,8 +36,12 @@ import PensionsABI from "./PensionsABI.json";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
 
+// **Contract Addresses**
 const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
 const CFAv1ForwarderAddress = "0x2CDd45c5182602a36d391F7F16DD9f8386C3bD8D";
+
+// **Token Addresses & ABIs**
+const CASH_TOKEN_ADDRESS = "YOUR_CASH_TOKEN_ADDRESS";
 const TIME_TOKEN_ADDRESS = "YOUR_TIME_TOKEN_ADDRESS";
 const TIME_TOKEN_ABI = [
   // ... (Your TIME token ABI)
@@ -83,43 +87,40 @@ const Home = () => {
 function PlayerStatus() {
   const { address, isConnected } = useAccount();
   const { data: balance } = useBalance({
-    addressOrName: address,
+    address: address,
     token: TIME_TOKEN_ADDRESS,
   });
-  const [retirementAge, setRetirementAge] = useState<BigNumber | undefined>();
-  const [userAge, setUserAge] = useState<BigNumber | undefined>();
+  const [retirementAge, setRetirementAge] = useState<bigint | undefined>();
+  const [userAge, setUserAge] = useState<bigint | undefined>();
 
+  // Read the retirement age from the contract
   const { data: contractRetirementAge } = useContractRead({
     address: PENSIONS_CONTRACT_ADDRESS,
     abi: PensionsABI,
     functionName: "retirementAge",
-    watch: true,
+    watch: true, // Automatically re-fetch when a new block is mined
   });
 
   useEffect(() => {
     if (contractRetirementAge) {
-      setRetirementAge(contractRetirementAge as BigNumber);
+      setRetirementAge(contractRetirementAge as bigint);
     }
   }, [contractRetirementAge]);
 
+  // Fetch and calculate the user's age in TIME tokens
   useEffect(() => {
     if (!isConnected || !address) return;
-
     const provider = useProvider();
-    const timeContract = new viem.Contract(
-      TIME_TOKEN_ADDRESS,
-      TIME_TOKEN_ABI,
-      provider
-    );
 
     const fetchUserAge = async () => {
-      const userBalance = await timeContract.read({
-        functionName: "balanceOf",
-        args: [address],
-      });
-      setUserAge(BigNumber.from(userBalance));
+      const timeContract = new viem.Contract(
+        TIME_TOKEN_ADDRESS,
+        TIME_TOKEN_ABI,
+        provider
+      );
+      const userBalance = await timeContract.read.balanceOf([address]);
+      setUserAge(userBalance as bigint);
     };
-
     fetchUserAge();
   }, [isConnected, address]);
 
@@ -133,10 +134,15 @@ function PlayerStatus() {
             <Text>Retirement Age: {retirementAge?.toString()}</Text>
             <Text>Your Age: {userAge?.toString()}</Text>
             <Divider />
-            {userAge?.gte(retirementAge || 0) ? (
-              <Button onClick={handleClaimPension}>Claim Pension</Button>
+            {/* Conditionally render the claim button */}
+            {userAge ? (
+              userAge >= retirementAge ? (
+                <Button onClick={handleClaimPension}>Claim Pension</Button>
+              ) : (
+                <Text>You are not eligible for a pension yet.</Text>
+              )
             ) : (
-              <Text>You are not eligible for pension yet.</Text>
+              <Text>Loading...</Text>
             )}
           </Stack>
         </CardBody>
@@ -144,6 +150,7 @@ function PlayerStatus() {
     )
   );
 
+  // Claim Pension handler
   function handleClaimPension() {
     // Logic to call claimPension() on the contract
     console.log("Claiming pension!");
@@ -153,41 +160,77 @@ function PlayerStatus() {
 function Actions() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+
+  const toast = useToast();
+
+  // Contribution State
   const [contributionAmount, setContributionAmount] = useState("");
+  const handleContributionChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setContributionAmount(event.target.value);
+  };
+
+  // Superfluid Stream State
   const [open, setOpen] = useState(false);
-  const [monthlyFlowRate, setMonthlyFlowRate] = useState<number | string>("");
+  const [monthlyFlowRate, setMonthlyFlowRate] = useState("");
   const [flowRate, setFlowRate] = useState<string>("");
+
+  // Create flow using CFAv1ForwarderABI
   const {
-    data: hash,
-    error,
-    isPending,
-    write: createFlow,
+    data: createFlowHash,
+    error: createFlowError,
+    isPending: isCreateFlowPending,
+    writeAsync: createFlow,
   } = useContractWrite({
-    address: PENSIONS_CONTRACT_ADDRESS,
-    abi: PensionsABI,
+    address: CFAv1ForwarderAddress,
+    abi: CFAv1ForwarderABI,
     functionName: "createFlow",
   });
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({ hash });
-  const { writeContract } = useContractWrite();
+  const {
+    isLoading: isCreateFlowConfirming,
+    isSuccess: isCreateFlowConfirmed,
+  } = useWaitForTransactionReceipt({
+    hash: createFlowHash,
+  });
 
+  // Write to the Pensions contract
+  const { writeAsync: pensionsContractWrite } = useContractWrite({
+    address: PENSIONS_CONTRACT_ADDRESS,
+    abi: PensionsABI,
+  });
+
+  // Handle Contribution
   const handleContribute = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isConnected || !address) return;
 
-    createFlow({
-      args: [parseEther(contributionAmount)],
-    });
+    // Call the contract's createFlow function (make sure it takes ETH)
+    try {
+      const hash = await pensionsContractWrite({
+        functionName: "createFlow", // [!code focus]
+        args: [parseEther(contributionAmount)],
+      });
+
+      if (hash) {
+        toast({
+          title: "Contribution Pending",
+          description: `Transaction hash: ${hash}`,
+          status: "info",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Contribution Error",
+        description: error?.message || "An error occurred",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
-  const openDialog = () => {
-    setOpen(true);
-  };
-
-  const closeDialog = () => {
-    setOpen(false);
-  };
-
+  // Handle Monthly Flow Rate Change
   const onMonthlyFlowRateChange = (valueString: string) => {
     setMonthlyFlowRate(valueString);
     const monthlyFlowRateValue = Number(valueString);
@@ -200,11 +243,20 @@ function Actions() {
     }
   };
 
+  const openDialog = () => {
+    setOpen(true);
+  };
+  const closeDialog = () => {
+    setOpen(false);
+  };
+
   return isConnected ? (
     <Card mt="6">
       <CardBody>
         <Stack spacing="3">
           <Heading size="md">Actions</Heading>
+
+          {/* Contribution Form */}
           <form onSubmit={handleContribute}>
             <FormControl>
               <FormLabel>Contribute more (ETH)</FormLabel>
@@ -212,19 +264,20 @@ function Actions() {
                 type="number"
                 placeholder="Contribution amount (ETH)"
                 value={contributionAmount}
-                onChange={(e) => setContributionAmount(e.target.value)}
+                onChange={handleContributionChange}
                 required
               />
             </FormControl>
-            <Button disabled={isPending} type="submit">
-              {isPending ? "Contributing..." : "Contribute"}
+            <Button disabled={isCreateFlowPending} type="submit">
+              {isCreateFlowPending ? "Contributing..." : "Contribute"}
             </Button>
           </form>
-          {hash && <div>Transaction Hash: {hash}</div>}
-          {isConfirming && <div>Waiting for confirmation...</div>}
-          {isConfirmed && <div>Contribution successful!</div>}
-          {error && <div>Error: {error.message}</div>}
+          {createFlowHash && <div>Transaction Hash: {createFlowHash}</div>}
+          {isCreateFlowConfirming && <div>Waiting for confirmation...</div>}
+          {isCreateFlowConfirmed && <div>Contribution successful!</div>}
+          {createFlowError && <div>Error: {createFlowError.message}</div>}
 
+          {/* Stream Button and Modal */}
           <Button data-cy={"open-dialog"} onClick={openDialog}>
             Start Stream
           </Button>
@@ -238,7 +291,7 @@ function Actions() {
             by creating a stream. Select the amount of AVAX you want to stream
             monthly.
             <NumberInput
-              onChange={(valueString) => onMonthlyFlowRateChange(valueString)}
+              onChange={onMonthlyFlowRateChange}
               value={monthlyFlowRate}
               max={50}
             >
@@ -250,14 +303,12 @@ function Actions() {
             <Button
               type="submit"
               onClick={() =>
-                writeContract({
-                  abi: CFAv1ForwarderABI,
-                  address: CFAv1ForwarderAddress,
-                  functionName: "createFlow",
+                createFlow({
                   args: [
-                    "0xfFD0f6d73ee52c68BF1b01C8AfA2529C97ca17F3",
-                    "0x178A621F2bbC191f8819e4a9C08C85Ce007D2094",
+                    CASH_TOKEN_ADDRESS, // Your super token address
+                    PENSIONS_CONTRACT_ADDRESS,
                     flowRate,
+                    "0x", // userData - can be left blank for this example
                   ],
                 })
               }
@@ -273,7 +324,7 @@ function Actions() {
       <Text>Please connect your wallet to start playing.</Text>
       <ul>
         {connectors.map((connector) => (
-          <li key={connector.id}>
+          <li key={connector.uid}>
             <Button onClick={() => connect({ connector })}>
               {connector.name}
             </Button>
