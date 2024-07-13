@@ -27,7 +27,7 @@ import {
   usePublicClient,
   useReadContract,
 } from "wagmi";
-import { parseEther, getContract } from "viem";
+import { parseEther, getContract, Abi } from "viem";
 import { mainnet } from "wagmi/chains";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
@@ -35,6 +35,7 @@ import { writeContract, simulateContract } from "@wagmi/core";
 
 import PENSIONS_ABI from "./PensionsABI.json";
 import TIME_ABI from "./TimeABI.json";
+import { config } from "./config"; // Import the config
 
 // **Contract Addresses**
 const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
@@ -110,7 +111,7 @@ function PlayerStatus() {
 
     const fetchUserAge = async () => {
       const timeContract = getContract({
-        abi: TIME_ABI,
+        abi: TIME_ABI as Abi,
         address: TIME_TOKEN_ADDRESS,
         client: provider,
       });
@@ -180,23 +181,18 @@ function Actions() {
 
     // Call the contract's createFlow function (make sure it takes ETH)
     try {
-      const result = await writeContract(
-        {
-          abi: PENSIONS_ABI,
-          address: PENSIONS_CONTRACT_ADDRESS,
-          functionName: "createFlow",
-          args: [parseEther(contributionAmount)],
-          chainId: mainnet.id,
-        },
-        {
-          account: address,
-        }
-      );
+      const result = await writeContract(config, {
+        abi: PENSIONS_ABI,
+        address: PENSIONS_CONTRACT_ADDRESS,
+        functionName: "createFlow",
+        args: [parseEther(contributionAmount)],
+        chainId: mainnet.id,
+      });
 
       if (result) {
         toast({
           title: "Contribution Pending",
-          description: `Transaction hash: ${result.hash}`,
+          description: `Transaction hash: ${result}`,
           status: "info",
           duration: 5000,
           isClosable: true,
@@ -281,41 +277,31 @@ function Actions() {
               type="submit"
               onClick={async () => {
                 try {
-                  const simulated = await simulateContract(
-                    {
-                      abi: CFAv1ForwarderABI,
-                      address: CFAv1ForwarderAddress,
-                      functionName: "createFlow",
-                      args: [
-                        CASH_TOKEN_ADDRESS, // Your super token address
-                        PENSIONS_CONTRACT_ADDRESS,
-                        flowRate,
-                        "0x", // userData - can be left blank for this example
-                      ],
-                      chainId: mainnet.id,
-                    },
-                    {
-                      account: address,
-                    }
-                  );
+                  const simulated = await simulateContract(config, {
+                    abi: CFAv1ForwarderABI,
+                    address: CFAv1ForwarderAddress,
+                    functionName: "createFlow",
+                    args: [
+                      CASH_TOKEN_ADDRESS, // Your super token address
+                      PENSIONS_CONTRACT_ADDRESS,
+                      flowRate,
+                      "0x", // userData - can be left blank for this example
+                    ],
+                    chainId: mainnet.id,
+                  });
 
-                  const result = await writeContract(
-                    {
-                      abi: CFAv1ForwarderABI,
-                      address: CFAv1ForwarderAddress,
-                      functionName: "createFlow",
-                      args: simulated.request.args,
-                      chainId: mainnet.id,
-                    },
-                    {
-                      account: address,
-                    }
-                  );
+                  const result = await writeContract(config, {
+                    abi: CFAv1ForwarderABI,
+                    address: CFAv1ForwarderAddress,
+                    functionName: "createFlow",
+                    args: simulated.request.args,
+                    chainId: mainnet.id,
+                  });
 
                   if (result) {
                     toast({
                       title: "Stream Created",
-                      description: `Transaction hash: ${result.hash}`,
+                      description: `Transaction hash: ${result}`,
                       status: "success",
                       duration: 5000,
                       isClosable: true,
