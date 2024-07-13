@@ -31,7 +31,8 @@ import { parseEther } from "viem";
 import PensionsABI from "./PensionsABI.json";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
-import { getContract, writeContract, simulateContract } from "viem";
+import { getContract } from "viem";
+import { writeContract, simulateContract } from "@wagmi/core";
 
 // **Contract Addresses**
 const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
