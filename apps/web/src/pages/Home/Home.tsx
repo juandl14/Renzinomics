@@ -110,8 +110,8 @@ function PlayerStatus() {
 
     const fetchUserAge = async () => {
       const timeContract = getContract({
-        address: TIME_TOKEN_ADDRESS,
         abi: TIME_ABI,
+        address: TIME_TOKEN_ADDRESS,
         client: provider,
       });
       const userBalance = await timeContract.read.balanceOf([address]);
@@ -182,8 +182,8 @@ function Actions() {
     try {
       const result = await writeContract(
         {
-          address: PENSIONS_CONTRACT_ADDRESS,
           abi: PENSIONS_ABI,
+          address: PENSIONS_CONTRACT_ADDRESS,
           functionName: "createFlow",
           args: [parseEther(contributionAmount)],
           chainId: mainnet.id,
@@ -283,8 +283,8 @@ function Actions() {
                 try {
                   const simulated = await simulateContract(
                     {
-                      address: CFAv1ForwarderAddress,
                       abi: CFAv1ForwarderABI,
+                      address: CFAv1ForwarderAddress,
                       functionName: "createFlow",
                       args: [
                         CASH_TOKEN_ADDRESS, // Your super token address
@@ -301,8 +301,8 @@ function Actions() {
 
                   const result = await writeContract(
                     {
-                      address: CFAv1ForwarderAddress,
                       abi: CFAv1ForwarderABI,
+                      address: CFAv1ForwarderAddress,
                       functionName: "createFlow",
                       args: simulated.request.args,
                       chainId: mainnet.id,
