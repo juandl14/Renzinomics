@@ -1,6 +1,16 @@
+import React, { useEffect, useState, ChangeEvent } from "react";
 import {
   Box,
+  Stack,
+  Text,
+  Divider,
   Button,
+  Input,
+  FormControl,
+  FormLabel,
+  Card,
+  CardBody,
+  Heading,
   Modal,
   ModalBody,
   ModalContent,
@@ -8,110 +18,35 @@ import {
   ModalHeader,
   NumberInput,
   NumberInputField,
+  useToast,
 } from "@chakra-ui/react";
+import {
+  useAccount,
+  useConnect,
+  useContractWrite,
+  useWaitForTransactionReceipt,
+  useBalance,
+  useSwitchChain,
+  useProvider,
+  useContractRead,
+} from "wagmi";
+import { parseEther } from "viem";
+import { BigNumber } from "ethers";
+import PensionsABI from "./PensionsABI.json";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
-import { useAccount, useWriteContract } from "wagmi";
-import { ChangeEvent, useEffect, useState } from "react";
 
-const CFAv1ForwarderAddress = "0x2CDd45c5182602a36d391F7F16DD9f8386C3bD8D"; // Replace with the actual CFAv1 Forwarder contract address
+const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
+const CFAv1ForwarderAddress = "0x2CDd45c5182602a36d391F7F16DD9f8386C3bD8D";
+const TIME_TOKEN_ADDRESS = "YOUR_TIME_TOKEN_ADDRESS";
+const TIME_TOKEN_ABI = [
+  // ... (Your TIME token ABI)
+];
 
 const Home = () => {
-  const [open, setOpen] = useState(false);
-  const [monthlyFlowRate, setmonthlyFlowRate] = useState<Number>();
-  const [flowRate, setFlowRate] = useState<string>("");
-  // const { address, isConnected } = useAccount();
-
-  const { writeContract } = useWriteContract();
-
-  const openDialog = () => {
-    setOpen(true);
-  };
-
-  const closeDialog = () => {
-    setOpen(false);
-  };
-
-  const onMonthlyFlowRateChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setmonthlyFlowRate(e.target.value);
-  };
-
-  // useEffect(() => {
-  //   if (monthlyFlowRate) {
-  //     const monthlyFlowRateValue = Number(monthlyFlowRate);
-  //     if (!isNaN(monthlyFlowRateValue)) {
-  //       const normalizedOutflowRate = (
-  //         (monthlyFlowRateValue * 1e18) /
-  //         ((60 * 60 * 24 * 365) / 12)
-  //       ).toFixed(0);
-  //       setFlowRate(normalizedOutflowRate);
-  //     }
-  //   }
-  // }, [monthlyFlowRate]);
-
-  // const startStream = (e: )
-
   return (
     <>
       <Box textAlign="center" className="box-container">
-        <Modal
-          isOpen={open}
-          onClose={closeDialog}
-          // PaperProps={{
-          //   component: "form",
-          //   onSubmit: (event: React.FormEvent<HTMLFormElement>) => {
-          //     event.preventDefault();
-          //     const formData = new FormData(event.currentTarget);
-          //     const formJson = Object.fromEntries((formData as any).entries());
-          //     const email = formJson.email;
-          //     console.log(email);
-          //     closeDialog();
-          //   },
-          // }}
-        >
-          <ModalContent>
-            <ModalHeader>Your way to freedom</ModalHeader>
-            <ModalBody>
-              To start working honestly, we kindly ask you to give us your money
-              by creating a stream. Select the amount of AVAX you want to stream
-              monthly.
-              {/* <TextField
-                value={monthlyFlowRate}
-                onChange={onMonthlyFlowRateChange}
-              /> */}
-              <NumberInput
-                onChange={(valueString) =>
-                  setmonthlyFlowRate(parse(valueString))
-                }
-                value={format(value)}
-                max={50}
-              >
-                <NumberInputField />
-              </NumberInput>
-            </ModalBody>
-            <ModalFooter>
-              <Button onClick={closeDialog}>Cancel</Button>
-              <Button
-                type="submit"
-                onClick={() =>
-                  writeContract({
-                    //@ts-ignore
-                    CFAv1ForwarderABI,
-                    address: CFAv1ForwarderAddress,
-                    functionName: "createFlow",
-                    args: [
-                      "0xfFD0f6d73ee52c68BF1b01C8AfA2529C97ca17F3",
-                      "0x178A621F2bbC191f8819e4a9C08C85Ce007D2094", // change for real contract address
-                      flowRate,
-                    ],
-                  })
-                }
-              >
-                Create stream
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
         <div className="left">
           <div className="container top-left">
             <h1>Game rules</h1>
@@ -133,23 +68,228 @@ const Home = () => {
           </div>
         </div>
         <div className="right">
-          <div className="container top-rigt">
-            <h1>Player stuatus</h1>
-            <h2>Retirement age: 65</h2>
-            <h2>Your age: 20</h2>
-            <h2>Your contributions: $120,000</h2>
-            <h2>People brought in: 10</h2>
+          <div className="container top-right">
+            <PlayerStatus />
           </div>
           <div className="container bottom-right">
-            <h1>Actions</h1>
-            <Button data-cy={"open-dialog"} onClick={openDialog}>
-              Start
-            </Button>
+            <Actions />
           </div>
         </div>
       </Box>
     </>
   );
 };
+
+function PlayerStatus() {
+  const { address, isConnected } = useAccount();
+  const { data: balance } = useBalance({
+    addressOrName: address,
+    token: TIME_TOKEN_ADDRESS,
+  });
+  const [retirementAge, setRetirementAge] = useState<BigNumber | undefined>();
+  const [userAge, setUserAge] = useState<BigNumber | undefined>();
+
+  const { data: contractRetirementAge } = useContractRead({
+    address: PENSIONS_CONTRACT_ADDRESS,
+    abi: PensionsABI,
+    functionName: "retirementAge",
+    watch: true,
+  });
+
+  useEffect(() => {
+    if (contractRetirementAge) {
+      setRetirementAge(contractRetirementAge as BigNumber);
+    }
+  }, [contractRetirementAge]);
+
+  useEffect(() => {
+    if (!isConnected || !address) return;
+
+    const provider = useProvider();
+    const timeContract = new viem.Contract(
+      TIME_TOKEN_ADDRESS,
+      TIME_TOKEN_ABI,
+      provider
+    );
+
+    const fetchUserAge = async () => {
+      const userBalance = await timeContract.read({
+        functionName: "balanceOf",
+        args: [address],
+      });
+      setUserAge(BigNumber.from(userBalance));
+    };
+
+    fetchUserAge();
+  }, [isConnected, address]);
+
+  return (
+    isConnected && (
+      <Card mt="6">
+        <CardBody>
+          <Stack spacing="3">
+            <Heading size="md">Player Status</Heading>
+            <Text>Balance (TIME): {balance?.formatted}</Text>
+            <Text>Retirement Age: {retirementAge?.toString()}</Text>
+            <Text>Your Age: {userAge?.toString()}</Text>
+            <Divider />
+            {userAge?.gte(retirementAge || 0) ? (
+              <Button onClick={handleClaimPension}>Claim Pension</Button>
+            ) : (
+              <Text>You are not eligible for pension yet.</Text>
+            )}
+          </Stack>
+        </CardBody>
+      </Card>
+    )
+  );
+
+  function handleClaimPension() {
+    // Logic to call claimPension() on the contract
+    console.log("Claiming pension!");
+  }
+}
+
+function Actions() {
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const [contributionAmount, setContributionAmount] = useState("");
+  const [open, setOpen] = useState(false);
+  const [monthlyFlowRate, setMonthlyFlowRate] = useState<number | string>("");
+  const [flowRate, setFlowRate] = useState<string>("");
+  const {
+    data: hash,
+    error,
+    isPending,
+    write: createFlow,
+  } = useContractWrite({
+    address: PENSIONS_CONTRACT_ADDRESS,
+    abi: PensionsABI,
+    functionName: "createFlow",
+  });
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash });
+  const { writeContract } = useContractWrite();
+
+  const handleContribute = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!isConnected || !address) return;
+
+    createFlow({
+      args: [parseEther(contributionAmount)],
+    });
+  };
+
+  const openDialog = () => {
+    setOpen(true);
+  };
+
+  const closeDialog = () => {
+    setOpen(false);
+  };
+
+  const onMonthlyFlowRateChange = (valueString: string) => {
+    setMonthlyFlowRate(valueString);
+    const monthlyFlowRateValue = Number(valueString);
+    if (!isNaN(monthlyFlowRateValue)) {
+      const normalizedOutflowRate = (
+        (monthlyFlowRateValue * 1e18) /
+        ((60 * 60 * 24 * 365) / 12)
+      ).toFixed(0);
+      setFlowRate(normalizedOutflowRate);
+    }
+  };
+
+  return isConnected ? (
+    <Card mt="6">
+      <CardBody>
+        <Stack spacing="3">
+          <Heading size="md">Actions</Heading>
+          <form onSubmit={handleContribute}>
+            <FormControl>
+              <FormLabel>Contribute more (ETH)</FormLabel>
+              <Input
+                type="number"
+                placeholder="Contribution amount (ETH)"
+                value={contributionAmount}
+                onChange={(e) => setContributionAmount(e.target.value)}
+                required
+              />
+            </FormControl>
+            <Button disabled={isPending} type="submit">
+              {isPending ? "Contributing..." : "Contribute"}
+            </Button>
+          </form>
+          {hash && <div>Transaction Hash: {hash}</div>}
+          {isConfirming && <div>Waiting for confirmation...</div>}
+          {isConfirmed && <div>Contribution successful!</div>}
+          {error && <div>Error: {error.message}</div>}
+
+          <Button data-cy={"open-dialog"} onClick={openDialog}>
+            Start Stream
+          </Button>
+        </Stack>
+      </CardBody>
+    </Card>
+  ) : (
+    <>
+      <Text>Please connect your wallet to start playing.</Text>
+      <ul>
+        {connectors.map((connector) => (
+          <li key={connector.id}>
+            <Button onClick={() => connect({ connector })}>
+              {connector.name}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+const StreamModal = ({
+  open,
+  closeDialog,
+  flowRate,
+  onMonthlyFlowRateChange,
+  writeContract,
+}) => (
+  <Modal isOpen={open} onClose={closeDialog}>
+    <ModalContent>
+      <ModalHeader>Your way to freedom</ModalHeader>
+      <ModalBody>
+        To start working honestly, we kindly ask you to give us your money by
+        creating a stream. Select the amount of AVAX you want to stream monthly.
+        <NumberInput
+          onChange={(valueString) => onMonthlyFlowRateChange(valueString)}
+          value={monthlyFlowRate}
+          max={50}
+        >
+          <NumberInputField />
+        </NumberInput>
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={closeDialog}>Cancel</Button>
+        <Button
+          type="submit"
+          onClick={() =>
+            writeContract({
+              abi: CFAv1ForwarderABI,
+              address: CFAv1ForwarderAddress,
+              functionName: "createFlow",
+              args: [
+                "0xfFD0f6d73ee52c68BF1b01C8AfA2529C97ca17F3",
+                "0x178A621F2bbC191f8819e4a9C08C85Ce007D2094",
+                flowRate,
+              ],
+            })
+          }
+        >
+          Create stream
+        </Button>
+      </ModalFooter>
+    </ModalContent>
+  </Modal>
+);
 
 export default Home;
