@@ -23,5 +23,5 @@
   "engines": {
     "bun": ">=1.0.0"
   },
-  "dependencies": { "@nomicfoundation/hardhat-network-helpers": "^1.0.0", "@nomicfoundation/hardhat-verify": "^2.0.0", "@nomicfoundation/hardhat-viem": "^1.0.0", "@types/chai-as-promised": "^7.1.6", "@types/mocha": ">=9.1.0", "hardhat-gas-reporter": "^1.0.8", "solidity-coverage": "^0.8.1", "ts-node": "^10.9.2", "typescript": "^5.5.3" }
+  "dependencies": { "@nomicfoundation/hardhat-network-helpers": "^1.0.0", "@nomicfoundation/hardhat-verify": "^2.0.0", "@nomicfoundation/hardhat-viem": "^1.0.0", "@types/chai-as-promised": "^7.1.6", "@types/mocha": ">=9.1.0", "hardhat-gas-reporter": "^1.0.8", "react-router-dom": "^6.24.1", "solidity-coverage": "^0.8.1", "ts-node": "^10.9.2", "typescript": "^5.5.3" }
 }

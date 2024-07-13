@@ -15,11 +15,20 @@ import {
   useReadContract,
   useBlockNumber,
   useSimulateContract,
+  useAccount,
 } from "wagmi";
+import {
+  Navigate,
+  Route,
+  BrowserRouter as Router,
+  Routes,
+} from "react-router-dom";
 import { parseAbi } from "viem";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import "./App.css";
+import Home from "./pages/Home/Home";
+import Welcome from "./pages/Welcome/Welcome";
 
 function App() {
   const queryClient = useQueryClient();
@@ -50,6 +59,8 @@ function App() {
     queryClient.invalidateQueries({ queryKey });
   }, [blockNumber, queryClient]);
 
+  const account = useAccount();
+
   return (
     <>
       <Flex
@@ -65,7 +76,22 @@ function App() {
         </Text>
         <ConnectButton />
       </Flex>
-      <Box textAlign="center" className="box-container">
+      <Router>
+        <Routes>
+          {account.isConnected ? (
+            <>
+              <Route path="/" element={<Home />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          ) : (
+            <>
+              <Route path="/welcome" element={<Welcome />} />
+              <Route path="*" element={<Navigate to="/welcome" replace />} />
+            </>
+          )}
+        </Routes>
+      </Router>
+      {/* <Box textAlign="center" className="box-container">
         <div className="left">
           <div className="container top-left">
             <h1>Game rules</h1>
@@ -99,8 +125,8 @@ function App() {
             <button>Contribute more</button>
             <button>Invite</button>
           </div>
-        </div>
-        {/* <Flex justifyContent={"center"} my="4">
+        </div> */}
+      {/* <Flex justifyContent={"center"} my="4">
           <Link href="https://vitejs.dev" isExternal>
             <Image
               src={viteLogo}
@@ -146,7 +172,7 @@ function App() {
         <Text mt="4" color={textColor}>
           Click on the Vite and React logos to learn more
         </Text> */}
-      </Box>
+      {/* </Box> */}
     </>
   );
 }
