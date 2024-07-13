@@ -27,10 +27,10 @@ import {
   usePublicClient,
   useReadContract,
 } from "wagmi";
-import { parseEther } from "viem";
+import { parseEther, getContract } from "viem";
+import { mainnet } from "wagmi/chains";
 import CFAv1ForwarderABI from "../../assets/CFAv1ForwarderABI/CFAv1ForwarderABI.json";
 import "./Home.css";
-import { getContract } from "viem";
 import { writeContract, simulateContract } from "@wagmi/core";
 
 import PENSIONS_ABI from "./PensionsABI.json";
@@ -38,7 +38,6 @@ import TIME_ABI from "./TimeABI.json";
 
 // **Contract Addresses**
 const PENSIONS_CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS";
-
 const CFAv1ForwarderAddress = "0x2CDd45c5182602a36d391F7F16DD9f8386C3bD8D";
 
 // **Token Addresses & ABIs**
@@ -159,6 +158,7 @@ function PlayerStatus() {
 function Actions() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+  const publicClient = usePublicClient();
 
   const toast = useToast();
 
@@ -180,16 +180,18 @@ function Actions() {
 
     // Call the contract's createFlow function (make sure it takes ETH)
     try {
-      const config = {
-        address: PENSIONS_CONTRACT_ADDRESS,
-        abi: PENSIONS_ABI,
-        functionName: "createFlow",
-        args: [parseEther(contributionAmount)],
-      };
-
-      const result = await writeContract(config, {
-        account: address,
-      });
+      const result = await writeContract(
+        {
+          address: PENSIONS_CONTRACT_ADDRESS,
+          abi: PENSIONS_ABI,
+          functionName: "createFlow",
+          args: [parseEther(contributionAmount)],
+          chainId: mainnet.id,
+        },
+        {
+          account: address,
+        }
+      );
 
       if (result) {
         toast({
@@ -279,23 +281,36 @@ function Actions() {
               type="submit"
               onClick={async () => {
                 try {
-                  const config = {
-                    address: CFAv1ForwarderAddress,
-                    abi: CFAv1ForwarderABI,
-                    functionName: "createFlow",
-                    args: [
-                      CASH_TOKEN_ADDRESS, // Your super token address
-                      PENSIONS_CONTRACT_ADDRESS,
-                      flowRate,
-                      "0x", // userData - can be left blank for this example
-                    ],
-                  };
+                  const simulated = await simulateContract(
+                    {
+                      address: CFAv1ForwarderAddress,
+                      abi: CFAv1ForwarderABI,
+                      functionName: "createFlow",
+                      args: [
+                        CASH_TOKEN_ADDRESS, // Your super token address
+                        PENSIONS_CONTRACT_ADDRESS,
+                        flowRate,
+                        "0x", // userData - can be left blank for this example
+                      ],
+                      chainId: mainnet.id,
+                    },
+                    {
+                      account: address,
+                    }
+                  );
 
-                  const simulated = await simulateContract(config, {
-                    account: address,
-                  });
-
-                  const result = await writeContract(config, simulated.request);
+                  const result = await writeContract(
+                    {
+                      address: CFAv1ForwarderAddress,
+                      abi: CFAv1ForwarderABI,
+                      functionName: "createFlow",
+                      args: simulated.request.args,
+                      chainId: mainnet.id,
+                    },
+                    {
+                      account: address,
+                    }
+                  );
 
                   if (result) {
                     toast({
