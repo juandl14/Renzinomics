@@ -7,6 +7,9 @@ const config: HardhatUserConfig = {
     localhost: {
       chainId: 31337,
     },
+    avalancheFuji: {
+      chainId: 43113,
+    },
   },
 };
 
