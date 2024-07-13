@@ -230,14 +230,43 @@ function Actions() {
           </Button>
         </Stack>
       </CardBody>
-      <StreamModal
-        open={open}
-        closeDialog={closeDialog}
-        flowRate={flowRate}
-        monthlyFlowRate={monthlyFlowRate}
-        onMonthlyFlowRateChange={onMonthlyFlowRateChange}
-        writeContract={writeContract}
-      />
+      <Modal isOpen={open} onClose={closeDialog}>
+        <ModalContent>
+          <ModalHeader>Your way to freedom</ModalHeader>
+          <ModalBody>
+            To start working honestly, we kindly ask you to give us your money
+            by creating a stream. Select the amount of AVAX you want to stream
+            monthly.
+            <NumberInput
+              onChange={(valueString) => onMonthlyFlowRateChange(valueString)}
+              value={monthlyFlowRate}
+              max={50}
+            >
+              <NumberInputField />
+            </NumberInput>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={closeDialog}>Cancel</Button>
+            <Button
+              type="submit"
+              onClick={() =>
+                writeContract({
+                  abi: CFAv1ForwarderABI,
+                  address: CFAv1ForwarderAddress,
+                  functionName: "createFlow",
+                  args: [
+                    "0xfFD0f6d73ee52c68BF1b01C8AfA2529C97ca17F3",
+                    "0x178A621F2bbC191f8819e4a9C08C85Ce007D2094",
+                    flowRate,
+                  ],
+                })
+              }
+            >
+              Create stream
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Card>
   ) : (
     <>
@@ -254,51 +283,5 @@ function Actions() {
     </>
   );
 }
-
-const StreamModal = ({
-  open,
-  closeDialog,
-  flowRate,
-  monthlyFlowRate,
-  onMonthlyFlowRateChange,
-  writeContract,
-}) => (
-  <Modal isOpen={open} onClose={closeDialog}>
-    <ModalContent>
-      <ModalHeader>Your way to freedom</ModalHeader>
-      <ModalBody>
-        To start working honestly, we kindly ask you to give us your money by
-        creating a stream. Select the amount of AVAX you want to stream monthly.
-        <NumberInput
-          onChange={(valueString) => onMonthlyFlowRateChange(valueString)}
-          value={monthlyFlowRate}
-          max={50}
-        >
-          <NumberInputField />
-        </NumberInput>
-      </ModalBody>
-      <ModalFooter>
-        <Button onClick={closeDialog}>Cancel</Button>
-        <Button
-          type="submit"
-          onClick={() =>
-            writeContract({
-              abi: CFAv1ForwarderABI,
-              address: CFAv1ForwarderAddress,
-              functionName: "createFlow",
-              args: [
-                "0xfFD0f6d73ee52c68BF1b01C8AfA2529C97ca17F3",
-                "0x178A621F2bbC191f8819e4a9C08C85Ce007D2094",
-                flowRate,
-              ],
-            })
-          }
-        >
-          Create stream
-        </Button>
-      </ModalFooter>
-    </ModalContent>
-  </Modal>
-);
 
 export default Home;
